@@ -1,8 +1,39 @@
 import React, { useState } from 'react';
 import { Camera, ChevronLeft, ChevronRight, Download, Eye } from 'lucide-react';
 import { OperationalRecord } from '../types';
-import { getStatusColor, getActivityTypeColor } from '../data/mockData';
 import { exportToCSV } from '../utils/dataUtils';
+
+const getStatusColor = (status: string): string => {
+  switch (status) {
+    case 'Resolvido':
+    case 'Satisfatório':
+      return 'text-green-600 bg-green-50';
+    case 'Em Andamento':
+      return 'text-blue-600 bg-blue-50';
+    case 'Pendente':
+      return 'text-orange-600 bg-orange-50';
+    default:
+      return 'text-gray-600 bg-gray-50';
+  }
+};
+
+const getActivityTypeColor = (type: string): string => {
+  const colors = [
+    'text-purple-600 bg-purple-50',
+    'text-indigo-600 bg-indigo-50',
+    'text-teal-600 bg-teal-50',
+    'text-cyan-600 bg-cyan-50',
+    'text-rose-600 bg-rose-50',
+    'text-amber-600 bg-amber-50'
+  ];
+
+  const hash = type.split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+
+  return colors[Math.abs(hash) % colors.length];
+};
 
 interface DataTableProps {
   data: OperationalRecord[];
@@ -62,9 +93,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
           <h3 className="text-lg font-semibold text-gray-900">Registros Operacionais</h3>
           <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
             Mostrando {startIndex + 1} a {Math.min(endIndex, data.length)} de {data.length} registros
-            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-              💾 Salvo Localmente
-            </span>
           </p>
         </div>
         <button
@@ -137,14 +165,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {record.photos && record.photos.length > 0 && (
+                  {record.photos && Array.isArray((record.photos as any).urls) && (record.photos as any).urls.length > 0 && (
                     <button
-                      onClick={() => openPhotoModal(record.photos!)}
+                      onClick={() => openPhotoModal((record.photos as any).urls)}
                       className="flex items-center gap-1 text-blue-600 hover:text-blue-900 transition-colors"
-                      title={`Ver ${record.photos.length} foto(s)`}
+                      title={`Ver ${(record.photos as any).urls.length} foto(s)`}
                     >
                       <Camera className="w-4 h-4" />
-                      <span className="text-xs">{record.photos.length}</span>
+                      <span className="text-xs">{(record.photos as any).urls.length}</span>
                     </button>
                   )}
                 </td>

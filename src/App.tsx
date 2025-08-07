@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart3, Settings, Database } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { FilterPanel } from './components/FilterPanel';
@@ -6,16 +6,10 @@ import { DataTable } from './components/DataTable';
 import { Charts } from './components/Charts';
 import { NewRecordForm } from './components/NewRecordForm';
 import { OperationalRecord, FilterState } from './types';
-import { mockData } from './data/mockData';
 import { calculateMetrics, filterData, getUniqueValues } from './utils/dataUtils';
-import { saveToLocalStorage, loadFromLocalStorage, STORAGE_KEYS, cleanupOldData } from './utils/storageUtils';
 
 function App() {
-  // Carregar dados do localStorage ou usar dados mock
-  const [data, setData] = useState<OperationalRecord[]>(() => {
-    const savedData = loadFromLocalStorage(STORAGE_KEYS.RECORDS);
-    return savedData && savedData.length > 0 ? savedData : mockData;
-  });
+  const [data, setData] = useState<OperationalRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'data' | 'analytics'>('dashboard');
   const [filters, setFilters] = useState<FilterState>({
     searchTerm: '',
@@ -24,6 +18,23 @@ function App() {
     responsible: '',
     dateRange: { start: '', end: '' }
   });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/records');
+        const result = await response.json();
+        setData(result);
+      } catch (error) {
+        console.error('Failed to fetch records:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const filteredData = useMemo(() => 
     filterData(
@@ -43,25 +54,23 @@ function App() {
   const uniqueActivityTypes = useMemo(() => getUniqueValues(data, 'activityType'), [data]);
   const uniqueResponsibles = useMemo(() => getUniqueValues(data, 'responsible'), [data]);
 
-  const handleAddRecord = (newRecord: Omit<OperationalRecord, 'id'>) => {
-    // Limpar dados antigos se necessário
-    cleanupOldData();
-    
-    const id = (Math.max(...data.map(r => parseInt(r.id))) + 1).toString();
-    const updatedData = [{ ...newRecord, id }, ...data];
-    
-    setData(updatedData);
-    
-    // Salvar no localStorage
-    saveToLocalStorage(STORAGE_KEYS.RECORDS, updatedData);
-  };
-
-  // Salvar dados sempre que houver mudanças
-  React.useEffect(() => {
-    if (data.length > 0) {
-      saveToLocalStorage(STORAGE_KEYS.RECORDS, data);
+  const handleAddRecord = async (newRecord: Omit<OperationalRecord, 'id'>) => {
+    try {
+      const response = await fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRecord),
+      });
+      if (response.ok) {
+        const savedRecord = await response.json();
+        setData([savedRecord, ...data]);
+      } else {
+        console.error('Failed to save record');
+      }
+    } catch (error) {
+      console.error('Error saving record:', error);
     }
-  }, [data]);
+  };
 
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
